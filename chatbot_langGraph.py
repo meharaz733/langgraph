@@ -40,8 +40,7 @@ workflow = main_graph.compile(checkpointer=checkpoint)
 thread_id = '1'
 
 while True:
-    user_msg = input("Type here:")
-    print('User:', user_msg)
+    user_msg = input("User:")
     if user_msg.strip().lower() in ['bye', 'exit', 'quit']:
         break
     config = {'configurable':{'thread_id':thread_id}}
@@ -51,3 +50,6 @@ while True:
     }, config=config)
 
     print('AI:',response['messages'][-1].content)
+
+
+print(workflow.get_state(config=config))
