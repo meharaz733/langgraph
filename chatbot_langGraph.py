@@ -37,19 +37,20 @@ workflow = main_graph.compile(checkpointer=checkpoint)
                     # 'messages':[HumanMessage(content="What is the name of Bangladeshi primeminister?")]
                 # })
 # print(ans)
-thread_id = '1'
+thread_id = 'thread-1'
+CONFIG = {'configurable':{'thread_id':thread_id}}
 
-while True:
-    user_msg = input("User:")
-    if user_msg.strip().lower() in ['bye', 'exit', 'quit']:
-        break
-    config = {'configurable':{'thread_id':thread_id}}
+# while True:
+#     user_msg = input("User:")
+#     if user_msg.strip().lower() in ['bye', 'exit', 'quit']:
+#         break
     
-    response = workflow.invoke({
-        'messages':[HumanMessage(content=user_msg)]
-    }, config=config)
+    
+#     response = workflow.invoke({
+#         'messages':[HumanMessage(content=user_msg)]
+#     }, config=CONFIG)
 
-    print('AI:',response['messages'][-1].content)
+#     print('AI:',response['messages'][-1].content)
 
 
-print(workflow.get_state(config=config))
+# print(workflow.get_state(config=CONFIG))
