@@ -1,5 +1,5 @@
 import streamlit as st
-from chatbot_langGraph import workflow
+from chatbot_langGraph import workflow, title_flow
 from langchain.messages import HumanMessage
 import uuid
 
@@ -16,7 +16,6 @@ def add_thread(thread_id):
 
 def retrieve_history(thread_id):
     st.session_state['message_history'] = []
-    st.session_state['thread_id'] = thread_id
     try:
         for msg in workflow.get_state(
             {
@@ -51,6 +50,8 @@ if 'thread_id' not in st.session_state:
     st.session_state['thread_id'] = uuid.uuid4()
 if 'chat_threads' not in st.session_state:
     st.session_state['chat_threads'] = []
+if 'title' not in st.session_state:
+    st.session_state['title'] = {}
 
 add_thread(st.session_state['thread_id'])
 
@@ -67,7 +68,10 @@ if st.sidebar.button('New Chat'):
 st.sidebar.header("My Conversation")
 
 for thread_id in reversed(st.session_state['chat_threads']):
-    if st.sidebar.button(str(thread_id)):
+    if st.sidebar.button("New Chat" if thread_id not in st.session_state['title'] else st.session_state['title'][thread_id],
+                         key=thread_id
+                     ):
+        st.session_state['thread_id'] = thread_id
         retrieve_history(thread_id)
 
 
@@ -124,20 +128,30 @@ if user_input:
 
     response = workflow.stream(
         {
-            'messages':[HumanMessage(content=user_input)]
+            'messages':[HumanMessage(content=user_input)],
         },
         config=CONFIG,
         stream_mode='messages'
     )
-    
+    # for msg, metadata in response:
+    #     print(f"msg: {msg}\n\n")
+    #     print(f"Metadata: {metadata}")
+        
     with st.chat_message('assistant'):
         ai_msg = st.write_stream(
                         msg.content for msg, metadata in response
                     )
-    
     st.session_state['message_history'].append(
         {
             'role':'assistant',
             'content': ai_msg
         }
     )
+    
+    if st.session_state['thread_id'] not in st.session_state['title']:
+        print("Point 10", st.session_state['message_history'])
+        title = title_flow.invoke({
+                            'messages' : f"Write a title for the following chat. Title must be less then 5 words \n chat:\n{st.session_state['message_history']}",
+                        }
+                    )['messages'][-1].content
+        st.session_state['title'][st.session_state['thread_id']] = title
