@@ -2,6 +2,7 @@ from langgraph.graph import StateGraph, START, END
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from typing import TypedDict
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import MemorySaver
 
 load_dotenv()
 
@@ -27,6 +28,8 @@ def get_query(state: MainState)->MainState:
 
 main_graph = StateGraph(MainState)
 
+checkpointer = MemorySaver()
+
 
 #Add nodes to graph
 main_graph.add_node('chat', chat_func)
@@ -38,13 +41,18 @@ main_graph.add_edge('get_query', 'chat')
 main_graph.add_edge('chat', END)
 
 # compile the graph
-workflow = main_graph.compile()
+workflow = main_graph.compile(checkpointer=checkpointer)
+config = {
+    'configurable':{
+        'thread_id':'thread_id'
+    }
+}
 
-final_state = workflow.invoke({})
+final_state = workflow.invoke({}, config=config)
 
-print(final_state)
+print(workflow.get_state(config=config))
 
-png_bytes = workflow.get_graph().draw_mermaid_png()
+# png_bytes = workflow.get_graph().draw_mermaid_png()
 
-with open("simple_llm_workflow.png", "wb") as f:
-    f.write(png_bytes)
+# with open("simple_llm_workflow.png", "wb") as f:
+#     f.write(png_bytes)
