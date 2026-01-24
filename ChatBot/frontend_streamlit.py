@@ -6,7 +6,7 @@ import uuid
 
 # utility func
 def reset():
-    st.session_state["thread_id"] = uuid.uuid4()
+    st.session_state["thread_id"] = str(uuid.uuid4())
     st.session_state["message_history"] = []
     add_thread(st.session_state["thread_id"])
 
@@ -16,51 +16,61 @@ def add_thread(thread_id):
         st.session_state["chat_threads"].append(thread_id)
 
 
-def retrieve_history(thread_ids):
+def retrieve_history(thread_id):
     st.session_state["message_history"] = []
     try:
-        for thread_id in thread_ids:
-            # checking value
-            print(workflow.get_state({"configurable": {"thread_id": thread_id}}))
+        # checking value
+        
+        # print(
+        #     "Thread id: ",
+        #     thread_id,
+        # )
 
-            for msg in workflow.get_state(
-                {"configurable": {"thread_id": thread_id}}
-            ).values["messages"]:
-                # print(msg)
-                if isinstance(msg, HumanMessage):
-                    st.session_state["message_history"].append(
-                        {"role": "user", "content": msg.content}
-                    )
-                else:
-                    st.session_state["message_history"].append(
-                        {"role": "assistant", "content": msg.content}
-                    )
+        state = workflow.get_state({"configurable": {"thread_id": thread_id}})
+        # print(f"Point 3:Workflow state: {state}\n")
 
-            for msg in workflow.get_state(
-                {"configurable": {"thread_id": thread_id}}
-            ).values["chat_title"]:
-                # print(msg)
-                if isinstance(msg, str):
-                    st.session_state["title"][thread_id] = msg
+        for msg in state.values["messages"]:
+            # print(msg)
+            if isinstance(msg, HumanMessage):
+                st.session_state["message_history"].append(
+                    {"role": "user", "content": msg.content}
+                )
+            else:
+                st.session_state["message_history"].append(
+                    {"role": "assistant", "content": msg.content}
+                )
+
+        st.session_state["title"][thread_id] = state.values["chat_title"]
+        # print(state.values["chat_title"])
 
     except Exception as e:
-        print(e)
+        print(f"Point 1: {e}")
         return
+
+
+def get_titles(threads):
+    try:
+        for thread in threads:
+            st.session_state["title"][thread] = workflow.get_state(
+                {"configurable": {"thread_id": thread}}
+            ).values["chat_title"]
+    except Exception as e:
+        print(f"Point 2: {e}")
 
 
 # config
 
 if "chat_threads" not in st.session_state:
-    st.session_state["chat_threads"] = retrieve_all_threads()
+    st.session_state["chat_threads"] = retrieve_all_threads() or []
 if "message_history" not in st.session_state:
     st.session_state["message_history"] = []
 if "thread_id" not in st.session_state:
-    st.session_state["thread_id"] = uuid.uuid4()
+    st.session_state["thread_id"] = str(uuid.uuid4())
 if "title" not in st.session_state:
     st.session_state["title"] = {}
 
-retrieve_history(st.session_state["chat_threads"])
-add_thread(st.session_state['thread_id'])
+get_titles(st.session_state["chat_threads"])
+add_thread(st.session_state["thread_id"])
 
 CONFIG = {"configurable": {"thread_id": st.session_state["thread_id"]}}
 
@@ -75,13 +85,14 @@ st.sidebar.header("My Conversation")
 
 for thread_id in reversed(st.session_state["chat_threads"]):
     if st.sidebar.button(
-        "New Chat"
+        "New Conversation"
         if thread_id not in st.session_state["title"]
         else st.session_state["title"][thread_id],
-        key=str(thread_id),
+        key=thread_id,
     ):
+        # print(f"Point 4: {thread_id}")
         st.session_state["thread_id"] = thread_id
-        retrieve_history([thread_id])
+        retrieve_history(thread_id)
 
 
 # main part
@@ -90,37 +101,6 @@ for message in st.session_state["message_history"]:
         st.text(message["content"])
 
 user_input = st.chat_input("type here...")
-
-# normal way to print llm response
-#
-#
-# if user_input:
-#     st.session_state['message_history'].append(
-#         {
-#             'role':'user',
-#             'content':user_input
-#         }
-#     )
-#     with st.chat_message('user'):
-#         st.text(user_input)
-
-#     response = workflow.invoke(
-#         {
-#             'messages':[HumanMessage(content=user_input)]
-#         },
-#         config=CONFIG
-#     )
-
-#     st.session_state['message_history'].append(
-#         {
-#             'role':'assistant',
-#             'content':response['messages'][-1].content
-#         }
-#     )
-
-#     with st.chat_message('assistant'):
-#         st.text(response['messages'][-1].content)
-
 
 # streaming llm response
 #
@@ -153,3 +133,6 @@ if user_input:
             CONFIG,
         )["chat_title"]
         st.session_state["title"][st.session_state["thread_id"]] = title
+
+
+# print("Point 11: \nSession State: ", st.session_state)
