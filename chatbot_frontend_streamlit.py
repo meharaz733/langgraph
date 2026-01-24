@@ -69,7 +69,7 @@ st.sidebar.header("My Conversation")
 
 for thread_id in reversed(st.session_state['chat_threads']):
     if st.sidebar.button("New Chat" if thread_id not in st.session_state['title'] else st.session_state['title'][thread_id],
-                         key=thread_id
+                         key=str(thread_id)
                      ):
         st.session_state['thread_id'] = thread_id
         retrieve_history(thread_id)
