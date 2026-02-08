@@ -1,11 +1,37 @@
-from langgraph.graph import StateGraph, START, END, add_messages
-from typing import TypedDict, Annotated, List
-from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
-from langgraph.checkpoint.sqlite import SqliteSaver
+import os
 import sqlite3
+from typing import Annotated, List, TypedDict
+
+import requests
+from dotenv import load_dotenv
+from langchain.tools import tool
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.graph import END, START, StateGraph, add_messages
+from langgraph.prebuilt import ToolNode, tools_condition
+from langsmith import traceable
+
+load_dotenv()
 
 
+search_tool = DuckDuckGoSearchRun(region="us-en")
+
+@tool
+def get_stock_price(symbol: str)->dict:
+    """
+    This tool provide latest stock price of any given symbol using Alpha Vantage API key.
+    This tool required symbol of the brand/product as input. e.g. MSFT, IBM
+    """
+
+    url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={os.getenv('ALPHAVANTAGE_API_KEY')}"
+    return requests.get(url=url).json()
+
+tools = [search_tool, get_stock_price]
+
+
+@traceable(run_type="retriever", name="retrieve func")
 def retrieve_all_threads():
     threads = set()
     for item in memory.list(None):
@@ -21,17 +47,21 @@ class ChatState(TypedDict):
 
 
 llm_model = HuggingFaceEndpoint(
-    repo_id="meta-llama/Llama-3.1-8B-Instruct", task="text_generation"
+    repo_id="meta-llama/Llama-3.1-8B-Instruct",
+    task="text-generation",
 )
 
 model = ChatHuggingFace(llm=llm_model)
 
+model_with_tools = model.bind_tools(tools=tools)
+
 
 def chat(state: ChatState) -> ChatState:
-    response = model.invoke(state["messages"])
+    response = model_with_tools.invoke(state["messages"])
 
     return {"messages": [response]}
 
+tool_node = ToolNode(tools)
 
 def get_title(state: ChatState) -> ChatState:
     response = model.invoke(
@@ -55,14 +85,13 @@ conn = sqlite3.connect("chatbot.db", check_same_thread=False)
 memory = SqliteSaver(conn)
 
 main_graph.add_node("chat", chat)
-# main_graph.add_node('get_title', get_title)
+main_graph.add_node("tools", tool_node)
 
 main_graph.add_edge(START, "chat")
-# main_graph.add_conditional_edges('chat', check_func, {
-#                                      'get_title':'get_title',
-#                                      'ok': END
-#                                  })
-main_graph.add_edge("chat", END)
+main_graph.add_conditional_edges("chat", tools_condition)
+main_graph.add_edge("tools", "chat")
+
+
 
 # title graph node and edge
 title_graph.add_node("get_title", get_title)

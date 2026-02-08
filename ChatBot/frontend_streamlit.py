@@ -3,7 +3,6 @@ from backend_langgraph import workflow, title_flow, retrieve_all_threads
 from langchain.messages import HumanMessage, AIMessage
 import uuid
 
-
 # utility func
 def reset():
     st.session_state["thread_id"] = str(uuid.uuid4())
