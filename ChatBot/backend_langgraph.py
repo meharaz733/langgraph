@@ -57,7 +57,7 @@ model_with_tools = model.bind_tools(tools=tools)
 
 
 def chat(state: ChatState) -> ChatState:
-    response = model_with_tools.invoke(state["messages"])
+    response = model.invoke(state["messages"])
 
     return {"messages": [response]}
 
